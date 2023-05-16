@@ -1,7 +1,7 @@
 mutable struct Solution
 	jobs::Vector{Int}
 	makespan::Int
-	time::Int
+	time::Float32
 
 	function Solution()
 		new([], 0, 0)

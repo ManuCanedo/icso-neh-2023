@@ -4,6 +4,8 @@ include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
 
+t = 0.005
+
 function insertJobIntoSequence(solution, inputs, k, kJob)
 	n = length(solution.jobs)
 	# Create earliest, tail, and relative completion times structures
@@ -79,16 +81,16 @@ function localSearch(solution::Solution, inputs::Inputs, rng::AbstractRNG)
 	improve = true
 	while improve
 		improve = false
-		for job in randperm(rng, inputs.nJobs)
+		for index in randperm(rng, length(solution.jobs))
+			job = solution.jobs[index]
 			newSolution = Solution(solution.jobs[:], solution.makespan, 0)
-			index = findfirst(isequal(job), newSolution.jobs)
 			deleteat!(newSolution.jobs, index)
 			insertJobIntoSequence(newSolution, inputs, index, job)
 			if newSolution.makespan < solution.makespan
 				solution = newSolution
 				improve = true
 			end
-		end
+		end		
 	end
 	return solution
 end
@@ -98,7 +100,7 @@ function perturbation(baseSolution::Solution, inputs::Inputs, rng::AbstractRNG)
 	solution.jobs = copy(baseSolution.jobs)
 	solution.makespan = baseSolution.makespan
 	# Select two random jobs from the sequence
-	aIndex, bIndex = rand(rng, 1:inputs.nJobs, 2)
+	aIndex, bIndex = rand(rng, 1:length(solution.jobs), 2)
 	# Swap the jobs at the two random positions
 	solution.jobs[aIndex], solution.jobs[bIndex] =
 		solution.jobs[bIndex], solution.jobs[aIndex]
@@ -119,12 +121,13 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
 	baseSolution = PFSP_Multistart(inputs, test, rng)
 	baseSolution = localSearch(baseSolution, inputs, rng)
 	bestSolution = baseSolution
+
 	# Start the iterated local search process
 	credit = 0
 	elapsedTime = 0
-	startTime = time_ns()
-	t = parse(Int, test.maxTime)
-	while elapsedTime < (inputs.nJobs * inputs.nMachines * t)
+	startTime = time()
+	maxTime = inputs.nJobs * inputs.nMachines * t
+	while elapsedTime < maxTime
 		# Perturb the base solution to find a new solution
 		solution = perturbation(baseSolution, inputs, rng)
 		solution = localSearch(solution, inputs, rng)
@@ -135,47 +138,43 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
 			baseSolution = solution
 			if solution.makespan < bestSolution.makespan
 				bestSolution = solution
-				bestSolution.time = time_ns()
+				bestSolution.time = time() - startTime
 			end
 		elseif 0 < delta <= credit
 			credit = 0
 			baseSolution = solution
 		end
 		# Update the elapsed time before evaluating the stopping criterion
-		currentTime = time_ns()
-		elapsedTime = currentTime - startTime
+		elapsedTime = time() - startTime
 	end
 	return bestSolution
 end
 
-function print_solution(solution::Solution)
-    println("Jobs: " * join(string(job) for job in solution.jobs, ", "))
+function printSolution(solution::Solution)
+    println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
     println("Makespan: $(round(solution.makespan, digits=2))")
     println("Time: $(round(solution.time, digits=2))")
 end
 
-function main()
-    script_dir = dirname(abspath(PROGRAM_FILE))
-    base_path = joinpath(script_dir, "..", "..")
+BASE_PATH = "/home/mtabares/dev/icso-neh/"
 
+function main()
     # Read tests from the file
-    tests = read_tests(joinpath(base_path, "tests", "test2run.txt"))
+    tests = readTests(joinpath(BASE_PATH, "tests", "test2run.txt"))
 
     for test in tests
         # Read inputs for the test inputs
-        inputs = read_inputs(joinpath(base_path, "inputs"), test.instanceName)
+        inputs = readInputs(joinpath(BASE_PATH, "inputs"), test.instanceName)
         rng = MersenneTwister(test.seed)
 
         # Compute the best deterministic solution
         solution = detExecution(inputs, test, rng)
         println("OBD $(inputs.name)")
-        print_solution(solution)
+        printSolution(solution)
     end
 end
 
-if abspath(PROGRAM_FILE) == @__FILE__
-    main()
-end
+main()
 
 
 
