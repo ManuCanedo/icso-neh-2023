@@ -5,65 +5,73 @@ include("objects.jl")
 include("heuristic.jl")
 
 function compare_inputs(a::Inputs, b::Inputs)
-	return a.name == b.name && a.nJobs == b.nJobs &&
-		   a.nMachines == b.nMachines && a.times == b.times
+    return a.name == b.name &&
+           a.nJobs == b.nJobs &&
+           a.nMachines == b.nMachines &&
+           a.times == b.times
 end
 
 function compare_tests(a::TestData, b::TestData)
-	return a.instanceName == b.instanceName && a.maxTime == b.maxTime &&
-		   a.nIter == b.nIter && a.distCrit == b.distCrit &&
-		   a.betaMin == b.betaMin && a.betaMax == b.betaMax &&
-		   a.distCand == b.distCand && a.betaMin2 == b.betaMin2 &&
-		   a.betaMax2 == b.betaMax2 && a.seed == b.seed &&
-		   a.shortSim == b.shortSim && a.longSim == b.longSim &&
-		   a.variance == b.variance && a.execType == b.execType
+    return a.instanceName == b.instanceName &&
+           a.maxTime == b.maxTime &&
+           a.nIter == b.nIter &&
+           a.distCrit == b.distCrit &&
+           a.betaMin == b.betaMin &&
+           a.betaMax == b.betaMax &&
+           a.distCand == b.distCand &&
+           a.betaMin2 == b.betaMin2 &&
+           a.betaMax2 == b.betaMax2 &&
+           a.seed == b.seed &&
+           a.shortSim == b.shortSim &&
+           a.longSim == b.longSim &&
+           a.variance == b.variance &&
+           a.execType == b.execType
 end
 
 @testset "test_readInputs" begin
-	test_path = realpath(joinpath(@__DIR__, "..", "..", "inputs"))
-	test_instance = "unittest_data"
-	expected_input = Inputs(
-		test_instance,
-		5,
-		3,
-		[
-			1  2  3
-			4  5  6
-			7  8  9
-			10 11 12
-			13 14 15
-		],
-	)
-	input = readInputs(test_path, test_instance)
-	@test compare_inputs(input, expected_input)
+    test_path = realpath(joinpath(@__DIR__, "..", "..", "inputs"))
+    test_instance = "unittest_data"
+    expected_input = Inputs(
+        test_instance,
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
+    )
+    input = readInputs(test_path, test_instance)
+    @test compare_inputs(input, expected_input)
 end
 
 @testset "test_readTests" begin
-	test_file =
-		realpath(joinpath(@__DIR__, "..", "..", "tests/test2run.txt"))
-	expected_tests = [
-		TestData(
-			"tai108_200_20",
-			"300",
-			"100000000",
-			"u",
-			"1.0",
-			"1.0",
-			"g",
-			"0.1",
-			"0.3",
-			"8634452",
-			"100",
-			"1000",
-			"1.0",
-			"0",
-		),
-	]
-	tests = readTests(test_file)
-	@test length(tests) == length(expected_tests)
-	for (i, expected_test) in enumerate(expected_tests)
-		@test compare_tests(tests[i], expected_test)
-	end
+    test_file = realpath(joinpath(@__DIR__, "..", "..", "tests/test2run.txt"))
+    expected_tests = [
+        TestData(
+            "tai108_200_20",
+            "300",
+            "100000000",
+            "u",
+            "1.0",
+            "1.0",
+            "g",
+            "0.1",
+            "0.3",
+            "8634452",
+            "100",
+            "1000",
+            "1.0",
+            "0",
+        ),
+    ]
+    tests = readTests(test_file)
+    @test length(tests) == length(expected_tests)
+    for (i, expected_test) in enumerate(expected_tests)
+        @test compare_tests(tests[i], expected_test)
+    end
 end
 
 function compare_solutions(a::Solution, b::Solution)
@@ -71,13 +79,18 @@ function compare_solutions(a::Solution, b::Solution)
 end
 
 function test_insertJobIntoSequence()
-    inputs = Inputs("test", 5, 3, [
-        1 2 3
-        4 5 6
-        7 8 9
-        10 11 12
-        13 14 15
-    ])
+    inputs = Inputs(
+        "test",
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
+    )
 
     @testset "insertJobIntoSequence" begin
         # Test case 1
@@ -107,13 +120,18 @@ function test_insertJobIntoSequence()
 end
 
 function test_PFSP_Heuristic()
-    inputs = Inputs("test", 5, 3, [
-        1 2 3
-        4 5 6
-        7 8 9
-        10 11 12
-        13 14 15
-    ])
+    inputs = Inputs(
+        "test",
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
+    )
 
     @testset "PFSP_Heuristic" begin
         # Test case 1
@@ -163,36 +181,55 @@ function test_createBiasedJobsSequence()
 end
 
 function test_PFSP_Multistart()
-    inputs = Inputs("test", 5, 3, [
-        1  2  3
-        4  5  6
-        7  8  9
-        10 11 12
-        13 14 15
-    ])
-    
-    test_data = TestData(
-        "unittest_data", "300", "100000000", "u",
-        "1.0", "1.0", "g", "0.1", "0.3",
-        "8634452", "100", "1000", "1.0", "0"
+    inputs = Inputs(
+        "test",
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
     )
-    
+
+    test_data = TestData(
+        "unittest_data",
+        "300",
+        "100000000",
+        "u",
+        "1.0",
+        "1.0",
+        "g",
+        "0.1",
+        "0.3",
+        "8634452",
+        "100",
+        "1000",
+        "1.0",
+        "0",
+    )
+
     @testset "PFSP_Multistart" begin
         seed = 1234
         rng = MersenneTwister(seed)
-        nehSolution = PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims=2)))))
+        nehSolution =
+            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
 
         seed = 5678
         rng = MersenneTwister(seed)
-        nehSolution = PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims=2)))))
+        nehSolution =
+            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
 
         seed = 9012
         rng = MersenneTwister(seed)
-        nehSolution = PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims=2)))))
+        nehSolution =
+            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
     end
@@ -200,13 +237,18 @@ end
 
 function test_localSearch()
     rng = MersenneTwister(42)
-    inputs = Inputs("test", 5, 3, [
-        1 2 3
-        4 5 6
-        7 8 9
-        10 11 12
-        13 14 15
-    ])
+    inputs = Inputs(
+        "test",
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
+    )
 
     @testset "localSearch" begin
         # Test case 1
@@ -219,13 +261,18 @@ end
 
 function test_perturbation()
     rng = MersenneTwister(42)
-    inputs = Inputs("test", 5, 3, [
-        1 2 3
-        4 5 6
-        7 8 9
-        10 11 12
-        13 14 15
-    ])
+    inputs = Inputs(
+        "test",
+        5,
+        3,
+        [
+            1 2 3
+            4 5 6
+            7 8 9
+            10 11 12
+            13 14 15
+        ],
+    )
 
     @testset "perturbation" begin
         # Test case 1

@@ -3,12 +3,11 @@
 import numpy as np
 import os
 import time
-import sys
 
 from inputs import readTests, readInputs
 from objects import Solution
 
-t = 0.05
+t = 0.005
 
 def insertJobIntoSequence(solution, inputs, k, kJob):
     n = len(solution.jobs)
@@ -134,8 +133,7 @@ def printSolution(solution):
     print("Time: {:.2f}".format(solution.time))
 
 if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    base_path = os.path.join(script_dir, "..", "..")
+    base_path = "/Users/mtabares/dev/icso-neh/"
 
     # Read tests from the file
     tests = readTests(os.path.join(base_path, "tests", "test2run.txt"))
