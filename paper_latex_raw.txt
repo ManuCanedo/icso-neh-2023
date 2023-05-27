@@ -1,0 +1,346 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%2345678901234567890123456789012345678901234567890123456789012345678901234567890
+%        1         2         3         4         5         6         7         8
+
+% \documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this line out
+%                                                           % if you need a4paper
+\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4
+                                                          % paper
+
+\IEEEoverridecommandlockouts                              % This command is only
+                                                          % needed if you want to
+                                                          % use the \thanks command
+\overrideIEEEmargins
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{soul}
+
+\title{\LARGE \bf
+Analyzing the Impact of Implementation Quality on the Performance of the NEH Permutation Flowshop Scheduling Problem Algorithm
+}
+
+\author{Manuel Canedo Tabares}
+
+
+\begin{document}
+
+
+
+\maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+
+This paper analyses the impact of implementation quality on the performance of the Nawaz, Enscore, and Ham heuristic (NEH) for solving the Permutation Flow Shop Problem (PFSP). This study optimises a reference Julia NEH algorithm from the literature. The resulting algorithm is converted to C++ and further optimised. The results show that the optimised Julia implementation is 74\% faster than the reference algorithm. The optimised C++ implementation is 88\% faster than the reference algorithm and 55\% faster than the optimised Julia implementation. These results suggest that the implementation quality can significantly impact the performance of the NEH heuristic for solving the PFSP.
+
+\end{abstract}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{INTRODUCTION}
+
+The Nawaz, Enscore, and Ham (NEH) heuristic is widely used for solving the Permutation Flow Shop Problem (PFSP). The PFSP is a combinatorial problem that consists of scheduling jobs on a set of machines. The PFSP arises in many industrial settings, such as manufacturing, logistics and project scheduling. In many cases, the problem's size and complexity make it computationally challenging to find an optimal solution in a reasonable amount of time. Therefore, efficient heuristic algorithms, such as the NEH heuristic, are crucial for solving the PFSP in practice. The NEH heuristic is an iterative construction method that starts with an empty schedule and gradually adds jobs while maintaining a near-optimal solution at each step. It has been shown to produce good-quality solutions for a wide range of Permutation Flow Shop Problems relatively quickly.
+
+This paper analyses the impact of the implementation quality on the performance of the NEH PFSP algorithm by optimising an implementation from the literature. This algorithm's performance bottlenecks are identified and avoided with high-performance computing techniques. These techniques include (1) preallocating memory for data structures, (2) using integer arithmetic, (3) preventing the creation of conditional branches in computationally intensive code paths, (4) using optimised built-in functionalities of the language and avoiding unnecessary work. These performance considerations are also applied to a new C++ implementation that allows for (5) cache locality and vectorisation analysis to fine-tune the algorithm.
+
+This paper aims to show that these optimisation techniques can significantly improve the performance of the NEH heuristic for the PFSP and that poor-performing implementations can make extracting valid scientific conclusions difficult. The performance results show that the optimised Julia implementation is significantly faster than the reference implementation. On top of that, the C++ implementation allows for fine-tuning, making it go the extra mile.
+
+The State of Art section introduces the Julia language, the C++ language, the NEH heuristic and related work that combines these elements. After that, this paper exposes the study's methodology, including the reference and optimised Julia implementations, the optimised C++ implementation, and the experimental setup. Then the Results section presents and analyses the performance comparison of the different implementations. Finally, the conclusion section recapitulates the presented and discusses future work.
+
+\section{State of the Art}
+
+Julia is a high-performance, dynamic programming language for numerical computing and data science. One of its key features is its Just-in-Time (JIT) compiler based on the Low-Level Virtual Machine (LLVM) toolchain, which can compile and execute code at runtime, allowing for code optimisation and fast execution times. The JIT compiler uses type inference and whole-program analysis to generate efficient machine code and also includes support for parallel and vectorised operations, making it well-suited for high-performance computing tasks.
+
+C++ is a high-performance, general-purpose language widely used in systems programming, scientific computing, and game development. One of its key features is its ability to achieve fine-grained governance over system resources through manual memory management and explicit control over hardware while offering zero-cost high-level abstractions. This makes it well-suited for applications that require maximum performance and extensive scalability. C++ is a powerful and versatile language well-suited for high-performance computing tasks that require fine-grained control over system resources and low-level access to hardware.
+
+The NEH heuristic is a well-established method for solving PFSP and has been shown to produce good-quality solutions for a wide range of problems relatively quickly. However, like any heuristic, it does not guarantee an optimal solution and may be sensitive to the initial ordering of the jobs. This is important to keep in mind when interpreting the results of the study. The key idea of the NEH heuristic is to start with an empty schedule and add jobs one by one in a non-increasing order of the sum of processing times on all machines while keeping track of the makespan (the total completion time of the last job) at each step \cite{NEH2015}. This approach allows for a fast and efficient search for a near-optimal solution. One way to improve the NEH heuristic is by using Taillard's acceleration \cite{Taillard1990}. The basic idea behind it is to change the order of the jobs at each insertion step by using a modified insertion rule that maintains near-optimality. This modification allows for more efficient solution-space exploration. Taillard's acceleration has been proven to improve the performance of the NEH heuristic and is widely used in practice.
+
+To the author's knowledge, no papers have specifically compared the implementations of the NEH heuristic in different programming languages and evaluated the impact of implementation quality on the heuristic's results.
+
+\section{Methodology}
+
+This section describes the methodology used to analyse the impact of implementation quality on the performance of the NEH PFSP algorithm. It starts by describing the reference implementation of the NEH heuristic in Julia and the optimisation techniques applied to improve its performance. It then describes the optimised implementation in Julia, the new implementation of the NEH heuristic in C++ and the experimental setup used to compare the performance of the two implementations.
+
+\subsection{The reference Julia implementation}
+
+The reference implementation of the NEH heuristic in Julia is based on code example from a course presentation from Juan A. (2022) \cite{Juan2022}. The analysis of this implementation yielded the following observations of inefficiencies and potential bottlenecks: 
+
+\begin{enumerate}
+    \item Memory for data structures is allocated at every algorithm iteration.
+    \item The computations are performed using floating point arithmetic.
+    \item Several conditional branches are created in the inner-most loops of the matrix calculation functions.
+    \item Multitude of efficient Julia built-ins are not used, such as multi-dimensional arrays, ranged loops, explicit typing and macros, in favor for less efficient ones.
+    \item There is repeated and unnecessary work.
+\end{enumerate}
+\vspace{1mm}
+
+\vspace{2mm}
+\begin{lstlisting}[frame=single, basicstyle=\tiny]
+function populate_e_mat!(solution, index)                                   (4)
+    number_machines = solution.number_machines                              (5)
+    e = [[0.0 for _ = 1:1:number_machines] for _ = 1:1:index]               (1)
+    for i = 1:1:index                                                       (4)
+        for j = 1:1:number_machines                                         (4)
+            if i == 1 && j == 1                                             (3)
+                e[1][1] = solution.jobs[1].processing_times[1]
+            elseif j == 1                                                   (3)
+                e[i][1] = solution.jobs[i].processing_times[1]
+                        + e[i-1][1]
+            elseif i == 1                                                   (3)
+                e[1][j] = solution.jobs[1].processing_times[j]
+                        + e[1][j-1]
+            else
+                e[i][j] = solution.jobs[i].processing_times[j]
+                        + max(e[i-1][j], e[i][j-1])
+            end
+        end
+    end
+    return e                                                                (1)
+end
+\end{lstlisting}
+
+\subsection{The optimised Julia implementation}
+
+In order to improve the performance of the reference implementation, several optimisation techniques were applied:
+
+\begin{itemize}
+\item \textbf{Memory Allocation:} The matrices are preallocated and reused among iterations. With this approach, there is just a need to allocate two matrices, as the same memory used to calculate matrix E can be reused by matrix Q.
+
+\item \textbf{Arithmetic:} The reference implementation uses floating-point arithmetic unnecessarily. This is optimised by using integer arithmetic instead. Integer arithmetic is generally faster than floating-point arithmetic as it does not require the additional computation of the exponent and the mantissa.
+
+\item \textbf{Matrix Iteration:} Many conditional branches are created when iterating over the matrices to populate them. This is avoided by rethinking the matrix iteration and filling them up section by section. This results in a better cache locality and facilitates the work of the processor's branch predictor.
+
+\item \textbf{Julia Built-Ins:} The use of Julia built-ins could be more efficient. The reference implementation uses arrays of arrays, does not use types, and does not use macros to help ease the compiler burden. The optimisation uses multidimensional arrays and flags loops as inbounds to prevent bound checking.
+
+\item \textbf{Parallelisation:} The active use of parallelisation was avoided to allow for better comparison. However, simplifying the layout and removing redundancy helps the compiler understand the code intent and apply optimisations and implicit vectorisation.
+\end{itemize}
+\vspace{1mm}
+
+\vspace{2mm}
+\begin{lstlisting}[frame=single, basicstyle=\tiny]
+function populate_e_mat!(solution::Solution, index::Int64, e_mat::Array{Int64})
+    # Calculate element (1, 1)
+    e_mat[1, 1] = solution.jobs[1].processing_times[1]
+
+    # Calculate elements (1, j != 1)
+    @inbounds for j in 2:solution.number_machines
+        e_mat[1, j] = solution.jobs[1].processing_times[j]
+                + e_mat[1, j-1]
+    end
+    @inbounds for i in 2:index
+        # Calculate element (i != 1, 1)
+        e_mat[i, 1] = solution.jobs[i].processing_times[1]
+                + e_mat[i-1, 1]
+
+        # Calculate element (i != 1, j != 1)
+        for j in 2:solution.number_machines
+            e_mat[i, j] = solution.jobs[i].processing_times[j]
+                    + max(e_mat[i-1, j], e_mat[i, j-1])
+        end
+    end
+end
+\end{lstlisting}
+
+
+\subsection{The optimised C++ implementation}
+
+The performance considerations used to optimise the reference implementation are not language dependent. The author has never used the Julia language before. These are general considerations that should apply to any language. These performance considerations are fundamental to building an efficient C++ implementation; without them, the Julia-optimised code would heavily outperform C++. What C++ brings to the table is the ability to control the data layout and the flow of execution with finer detail and express more explicit intent to the compiler.
+
+In order to outperform the Julia implementation, several low-level factors were taken into account:
+
+\begin{itemize}
+\item \textbf{Data Layout:} Initially, a row-major memory distribution was used for the matrices. On the contrary, Julia uses a column-major layout, decreasing the number of cache fetches the processor has to perform while iterating. Implementing this layout in C++ yielded a performance increase. However, this layout was also outperformed by using sparse memory: allocating an individual memory block for every row. The rationale behind this relates to the alignment of the data, and the number of cache fetches required to perform the computations.
+
+\item \textbf{Aiding the Compiler:} After improving the cache locality of data and not having conditional branches in the matrix iteration functions, the performance bottleneck became the intensive use of the Standard Template Library function std::max. The boilerplate code used inside this function to ensure type generality did not allow the compiler to optimise the call fully. This was solved by implementing a simple inline function to calculate the maximum. In addition, using equality operators instead of less/greater-than operators further allowed the compiler to generate fewer instructions.
+
+\item \textbf{Vectorisation:} The heavily simplified layout allowed the compiler to apply better implicit vectorisation to loops. Compilation reports show that only two loops could not benefit from implicit vectorisation, which opens a line of future work.
+
+\item \textbf{Compilation Flags:} Many compilation flags and configurations were evaluated, finally settling on using GCC's safe performance optimisations (-O3) and performance tuning for the platform executing the compilation (-march=native), as well as support for C++20 (-std=c++20).
+\end{itemize}
+\vspace{1mm}
+
+\vspace{2mm}
+\begin{lstlisting}[frame=single, language=C++, basicstyle=\tiny]
+template <typename NumericType>
+constexpr void populate_e_mat(const std::vector<Job<NumericType>> &jobs,
+                              size_t index, Matrix<NumericType> &e_mat) {
+  // Calculate element (0, 0)
+  e_mat(0, 0) = jobs[0].processing_times[0];
+
+  // Calculate elements (0, j != 0)
+  for (size_t j = 1; j != e_mat.width(); ++j) {
+    e_mat(0, j) = jobs[0].processing_times[j] + e_mat(0, j - 1);
+  }
+  for (size_t i = 1; i != index + 1; ++i) {
+    // Calculate element (i != 0, 0)
+    e_mat(i, 0) = jobs[i].processing_times[0] + e_mat(i - 1, 0);
+
+    // Calculate element (i != 0, j != 0)
+    for (size_t j = 1; j != e_mat.width(); ++j) {
+      e_mat(i, j) = jobs[i].processing_times[j] +
+                    max(e_mat(i - 1, j), e_mat(i, j - 1));
+    }
+  }
+}
+\end{lstlisting}
+
+\subsection{Experimental Setup}
+
+To compare the performance of the reference Julia, the optimised Julia and the optimised C++ implementations, a set of seven problem instances were selected. Taillard's instances were chosen as they are widely used in the literature as benchmark instances for the PFSP problem. These instances were selected to cover a range of problem sizes and configurations, allowing for a thorough analysis of the performance of the different implementations. A thousand runs of each algorithm were performed for each instance, gathering statistics such as the mean execution time, the maximum execution time and the minimum execution time.
+
+All the experiments were run on the same machine (x86 AMD Ryzen™ 9 5950X) with the same operating system (Ubuntu 20.04) and compiler versions (Julia 1.8.5 and GCC 9) with the same input parameters to ensure accurate and comparable results.
+
+\section{Results}
+
+This section presents and analyses the results of this study's performance comparison between the reference Julia implementation, the optimised Julia implementation and the optimised C++ implementation of the NEH PFSP algorithm.
+
+\subsection{Problem Instance Results}
+
+The instances tested, which include the number of jobs and number of machines in their name, and the best solutions obtained are summarised in the table below:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Instance & reference Julia & optimised Julia & optimised C++ \\
+\hline
+tai031\_50\_5 & 2733 & 2733 & 2733 \\
+tai060\_50\_20 & 4016 & 4016 & 4079 \\
+tai071\_100\_10 & 5874 & 5874 & 5881 \\
+tai081\_100\_20 & 6531 & 6531 & 6594 \\
+tai091\_200\_10 & 10981 & 10981 & 10942 \\
+tai101\_200\_20 & 11739 & 11739 & 11684 \\
+tai117\_500\_20 & 26785 & 26785 & 26854 \\
+\hline
+\end{tabular}
+\caption{Taillard instances and solutions obtained with each implementation}
+\label{tab:1}
+\end{table}
+
+The Julia implementations use the Quick Sort algorithm, while C++ uses a variation of Muser's Introsort when compiled with GCC to sort the initial set of jobs. The difference in the initial ordering of jobs accounts for the slight variations in the results found between implementations.
+
+\subsection{Julia Results}
+
+The execution times measured for the reference Julia implementation are summarised in the following table:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Instance & Average & Minimum & Maximum \\
+\hline
+tai031\_50\_5 & 0.22 & 0.18 & 4.14 \\
+tai060\_50\_20 & 0.63 & 0.53 & 4.71 \\
+tai071\_100\_10 & 1.58 & 1.34 & 5.22 \\
+tai081\_100\_20 & 2.43 & 2.11 & 7.22 \\
+tai091\_200\_10 & 6.01 & 5.29 & 8.66 \\
+tai101\_200\_20 & 9.53 & 8.34 & 14.92 \\
+tai117\_500\_20 & 48.57 & 41.47 & 113.71 \\
+\hline
+\end{tabular}
+\caption{Taillard instances and execution times (ms) for the reference Julia implementation (ms)}
+\label{tab:2}
+\end{table}
+
+The execution times measured for the optimised Julia implementation are shown in the following table:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Instance & Average & Minimum & Maximum \\
+\hline
+tai031\_50\_5 & 0.03 & 0.03 & 0.07 \\
+tai060\_50\_20 & 0.12 & 0.11 & 3.31 \\
+tai071\_100\_10 & 0.26 & 0.25 & 0.29 \\
+tai081\_100\_20 & 0.48 & 0.47 & 0.56 \\
+tai091\_200\_10 & 1.03 & 1.01 & 1.21 \\
+tai101\_200\_20 & 1.97 & 1.93 & 3.37 \\
+tai117\_500\_20 & 12.65 & 12.08 & 16.05 \\
+\hline
+\end{tabular}
+\caption{Taillard instances and execution times (ms) for the optimised Julia implementation (ms)}
+\label{tab:3}
+\end{table}
+
+These results represent an improvement in execution times of 74\% for the most demanding problem and 97\% for the least demanding one.
+
+\subsection{C++ Results}
+
+The execution times measured for the optimised C++ implementation are shown in the following table:
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Instance & Average & Minimum & Maximum \\
+\hline
+tai031\_50\_5 & 0.02 & 0.02 & 0.05 \\
+tai060\_50\_20 & 0.05 & 0.05 & 0.08 \\
+tai071\_100\_10 & 0.13 & 0.13 & 0.15 \\
+tai081\_100\_20 & 0.22 & 0.22 & 0.24 \\
+tai091\_200\_10 & 0.52 & 0.51 & 0.59 \\
+tai101\_200\_20 & 0.92 & 0.90 & 0.97 \\
+tai117\_500\_20 & 5.73 & 5.61 & 5.91 \\
+\hline
+\end{tabular}
+\caption{Taillard instances and execution times for the optimised C++ implementation (ms)}
+\label{tab:4}
+\end{table}
+
+Regarding the reference Julia implementation, these results represent an improvement in execution times of 88\% for the most demanding problem and 98\% for the least demanding one. They represent an improvement of 55\% and 33\% over the optimised Julia implementation.
+
+Figure 1 represents each implementation's average completion time per instance, plotted over a logarithmic Y axis. It helps visualise how each graph is translated in the execution time axis due to the optimisations while maintaining the same asymptotic growth.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.5\textwidth]{log_all.png}
+\caption{Logarithmic execution times}
+\label{fig:plot}
+\end{figure}
+
+\section{Conclusion}
+
+This study took the implementation of the NEH heuristic to solve the PFSP problem from the literature and focused on optimising it. Then, it applied the same performance considerations to a new implementation in C++ and further fine-tuned it. This optimisation effort aimed to demonstrate how the implementation quality can impact performance.
+
+The results show that the optimised Julia implementation performs significantly better than the reference implementation: 74\% improvement on the most demanding problem instance. It performs closer to the optimised C++ than the reference implementation, highlighting the need to apply performance principles to extract the most from capable high-performance languages like Julia. The results also showed that C++ still allows for further performance gains over the optimised Julia implementation: 55\% improvement on the most demanding problem instance. However, it requires more profound low-level knowledge and longer development times.
+
+To further build on these findings, future work could include a comparison of the NEH heuristic against other state-of-the-art algorithms for solving the PFSP. Additionally, it would be interesting to investigate the performance of the optimised C++ implementation when integrated into a library that can be used from high-level languages such as Python or Julia. The C++ implementation still has room for improvement while being a reliable building block for a new lightweight, fast library to solve the PFSP.
+
+\section*{APPENDIX}
+
+All the code developed for this study can be publicly found in the repository below:
+
+\begin{center}
+\href{https://github.com/ManuCanedo/neh-pfsp-optimisation}{Code Repository}
+\end{center}
+
+The author encourages everyone interested in the topic to use and contribute to the repository.
+
+\section{Acknowledgements}
+
+The author would like to thank Professor Juan for pointing them in the right direction and encouraging them to apply their optimization knowledge to the field of metaheuristic optimization.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{thebibliography}{1}
+
+\bibitem{NEH2015} Fernandez-Viagas, V., Framinan, J. M. (2015). NEH-based heuristics for the permutation flowshop scheduling problem to minimize total tardiness. Computers \& Operations Research, 60, 27-36.
+\bibitem{Taillard1990} Taillard, E. (1990). Some efficient heuristic methods for the flow shop sequencing problem. European Journal of Operational Research, 47(1), 65-74.
+\bibitem{Juan2022} Juan, A. (2022, March). ``ILS, TS and NEH heuristic PFSP`` Presentation conducted at the Metaheuristic Optimisation course, Open University of Catalonia.
+
+\end{thebibliography}
+
+
+
+\end{document}
