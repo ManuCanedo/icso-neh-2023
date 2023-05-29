@@ -56,10 +56,11 @@ function createBiasedJobsSequence(jobs, rng)
     return biasedJobs
 end
 
-function PFSP_Multistart(inputs, test, rng)
+function PFSP_Multistart(inputs, rng)
     totalTimes = sum(inputs.times, dims = 2)
     sortedJobIndices = sortperm(vec(totalTimes), rev = true)
     nehSolution = @time PFSP_Heuristic(inputs, sortedJobIndices)
+    println("NEH makespan: $(nehSolution.makespan)")
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan && nIter < inputs.nJobs
@@ -114,9 +115,11 @@ end
 
 function detExecution(inputs, test, rng)
     # Create a base solution using a randomized NEH approach
-    baseSolution = @time PFSP_Multistart(inputs, test, rng)
+    baseSolution = @time PFSP_Multistart(inputs, rng)
+    println("Multistart makespan: $(baseSolution.makespan)")
     baseSolution = @time localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
+    println("Multistart makespan: $(bestSolution.makespan)")
 
     # Start the iterated local search process
     credit = 0

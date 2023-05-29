@@ -61,7 +61,14 @@ function populate_f!(kJob::Int, inputs::Inputs, index::Int, e::Array{Int}, f::Ar
     end
 end
 
-function insertJobIntoSequence(solution::Solution, inputs::Inputs, k::Int, kJob::Int, eq::Array{Int}, f::Array{Int})
+function insertJobIntoSequence(
+    solution::Solution,
+    inputs::Inputs,
+    k::Int,
+    kJob::Int,
+    eq::Array{Int},
+    f::Array{Int},
+)
     n = length(solution.jobs)
     # Compute earliest, tail, and relative completion times structures
     populate_e!(solution.jobs, inputs, n, eq)
@@ -110,16 +117,11 @@ function createBiasedJobsSequence(jobs::Vector{Int}, rng::AbstractRNG)
     return biasedJobs
 end
 
-function PFSP_Multistart(
-    inputs::Inputs,
-    test::TestData,
-    rng::AbstractRNG,
-    eq::Array{Int},
-    f::Array{Int},
-)
+function PFSP_Multistart(inputs::Inputs, rng::AbstractRNG, eq::Array{Int}, f::Array{Int})
     totalTimes = sum(inputs.times, dims = 2)
     sortedJobIndices = sortperm(vec(totalTimes), rev = true)
     nehSolution = @time PFSP_Heuristic(inputs, sortedJobIndices, eq, f)
+    println("NEH makespan: $(nehSolution.makespan)")
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan && nIter < inputs.nJobs
@@ -189,9 +191,11 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
     t = 0.005
 
     # Create a base solution using a randomized NEH approach
-    baseSolution = @time PFSP_Multistart(inputs, test, rng, eq, f)
+    baseSolution = @time PFSP_Multistart(inputs, rng, eq, f)
+    println("Multistart makespan: $(baseSolution.makespan)")
     baseSolution = @time localSearch(baseSolution, inputs, rng, eq, f)
     bestSolution = baseSolution
+    println("LS makespan: $(bestSolution.makespan)")
 
     # Start the iterated local search process
     credit = 0

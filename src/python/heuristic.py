@@ -128,7 +128,6 @@ def detExecution(inputs, test, rng):
         currentTime = time.process_time()
         elapsedTime = currentTime - startTime
 
-    print(f"ILS makespan: {bestSolution.makespan}")
     return bestSolution
 
 def printSolution(solution):
