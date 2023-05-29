@@ -51,6 +51,7 @@ def PFSP_Multistart(inputs, test, rng):
     totalTimes = np.sum(inputs.times, axis = 1)
     sortedJobs = np.flip(np.argsort(totalTimes)).tolist()
     nehSolution = PFSP_Heuristic(inputs, sortedJobs)
+    print(f"NEH makespan: {nehSolution.makespan}")
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan and nIter < inputs.nJobs:
@@ -99,8 +100,10 @@ def perturbation(baseSolution, inputs, rng):
 def detExecution(inputs, test, rng):
     # Create a base solution using a randomized NEH approach
     baseSolution = PFSP_Multistart(inputs, test, rng)
+    print(f"Multistart makespan: {baseSolution.makespan}")
     baseSolution = localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
+    print(f"LS makespan: {bestSolution.makespan}")
 
     # Start the iterated local search process
     credit = 0
@@ -125,6 +128,7 @@ def detExecution(inputs, test, rng):
         currentTime = time.process_time()
         elapsedTime = currentTime - startTime
 
+    print(f"ILS makespan: {bestSolution.makespan}")
     return bestSolution
 
 def printSolution(solution):
@@ -145,5 +149,5 @@ if __name__ == "__main__":
 
         # Compute the best deterministic solution
         solution = detExecution(inputs, test, rng)
-        print("OBD {:s}".format(inputs.name))
-        printSolution(solution)
+        # print("OBD {:s}".format(inputs.name))
+        # printSolution(solution)

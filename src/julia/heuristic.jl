@@ -6,47 +6,100 @@ include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
 
-t = 0.005
+function populate_e!(jobs::Vector{Int}, inputs::Inputs, index::Int, e::Array{Int})
+    e[1, 1] = inputs.times[jobs[1], 1]
 
-function insertJobIntoSequence(solution, inputs, k, kJob)
-    n = length(solution.jobs)
-    # Create earliest, tail, and relative completion times structures
-    e = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
-    q = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
-    f = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
-    # Compute earliest, tail, and relative completion times values
-    for i = 1:(n+1)
-        for j = 1:inputs.nMachines
-            if i < n + 1
-                e[i, j] = max(e[i, j-1], e[i-1, j]) + inputs.times[solution.jobs[i], j]
-            end
-            if i > 1
-                q[n+2-i, inputs.nMachines+1-j] =
-                    max(q[n+2-i, inputs.nMachines+2-j], q[n+3-i, inputs.nMachines+1-j]) +
-                    inputs.times[solution.jobs[n+2-i], inputs.nMachines+1-j]
-            end
-            f[i, j] = max(f[i, j-1], e[i-1, j]) + inputs.times[kJob, j]
+    for j = 2:inputs.nMachines
+        e[1, j] = inputs.times[jobs[1], j] + e[1, j-1]
+    end
+    for i = 2:index
+        e[i, 1] = inputs.times[jobs[i], 1] + e[i-1, 1]
+
+        for j = 2:inputs.nMachines
+            e[i, j] = inputs.times[jobs[i], j] + max(e[i-1, j], e[i, j-1])
         end
     end
+end
+
+function populate_q!(jobs::Vector{Int}, inputs::Inputs, index::Int, q::Array{Int})
+    for j = inputs.nMachines:-1:1
+        q[index, j] = 0
+    end
+    if index == 1
+        return
+    end
+    q[index-1, inputs.nMachines] = inputs.times[jobs[index-1], inputs.nMachines]
+
+    for j = inputs.nMachines-1:-1:1
+        q[index-1, j] = inputs.times[jobs[index-1], j] + q[index-1, j+1]
+    end
+    if index == 2
+        return
+    end
+    for i = index-2:-1:1
+        q[i, inputs.nMachines] =
+            inputs.times[jobs[i], inputs.nMachines] + q[i+1, inputs.nMachines]
+
+        for j = inputs.nMachines-1:-1:1
+            q[i, j] = inputs.times[jobs[i], j] + max(q[i+1, j], q[i, j+1])
+        end
+    end
+end
+
+function populate_f!(kJob::Int, inputs::Inputs, index::Int, e::Array{Int}, f::Array{Int})
+    f[1, 1] = inputs.times[kJob, 1]
+
+    for j = 2:inputs.nMachines
+        f[1, j] = inputs.times[kJob, j] + f[1, j-1]
+    end
+    for i = 2:index
+        f[i, 1] = inputs.times[kJob, 1] + e[i-1, 1]
+
+        for j = 2:inputs.nMachines
+            f[i, j] = inputs.times[kJob, j] + max(e[i-1, j], f[i, j-1])
+        end
+    end
+end
+
+function insertJobIntoSequence(solution::Solution, inputs::Inputs, k::Int, kJob::Int, eq::Array{Int}, f::Array{Int})
+    n = length(solution.jobs)
+    # Compute earliest, tail, and relative completion times structures
+    populate_e!(solution.jobs, inputs, n, eq)
+    populate_f!(kJob, inputs, n + 1, eq, f)
+    populate_q!(solution.jobs, inputs, n + 1, eq)
     # Find position of minimum makespan
-    Mi = maximum(f.data + q.data, dims = 2)[1:end-1]
-    index = argmin(Mi[1:min(k + 1, end)])
+    index = k
+    solution.makespan = typemax(Int)
+    for i = 1:k
+        max_sum = 0
+        for j = 1:inputs.nMachines
+            max_sum = max(f[i, j] + eq[i, j], max_sum)
+        end
+        if max_sum < solution.makespan
+            index = i
+            solution.makespan = max_sum
+        end
+    end
     # Insert job in the sequence and update makespan
-    insert!(solution.jobs, index, kJob)
-    solution.makespan = Mi[index]
+    insert!(solution.jobs, min(index, n + 1), kJob)
 end
 
 
-function PFSP_Heuristic(inputs::Inputs, jobs::Vector{Int})
+function PFSP_Heuristic(
+    inputs::Inputs,
+    jobIndices::Vector{Int},
+    eq::Array{Int},
+    f::Array{Int},
+)
     solution = Solution()
-    solution.jobs = [jobs[1]]
-    for (i, job) in enumerate(jobs[2:end])
-        insertJobIntoSequence(solution, inputs, i, job)
+    solution.jobs = [jobIndices[1]]
+    for i = 2:length(jobIndices)
+        insertJobIntoSequence(solution, inputs, i, jobIndices[i], eq, f)
     end
     return solution
 end
 
-function createBiasedJobsSequence(jobs, rng::AbstractRNG)
+function createBiasedJobsSequence(jobs::Vector{Int}, rng::AbstractRNG)
     jobsCopy = copy(jobs)
     biasedJobs = Int[]
     for _ = 1:length(jobsCopy)
@@ -57,16 +110,22 @@ function createBiasedJobsSequence(jobs, rng::AbstractRNG)
     return biasedJobs
 end
 
-function PFSP_Multistart(inputs::Inputs, test::TestData, rng::AbstractRNG)
+function PFSP_Multistart(
+    inputs::Inputs,
+    test::TestData,
+    rng::AbstractRNG,
+    eq::Array{Int},
+    f::Array{Int},
+)
     totalTimes = sum(inputs.times, dims = 2)
-    sortedJobs = reverse(sortperm(vec(totalTimes)))
-    nehSolution = PFSP_Heuristic(inputs, sortedJobs)
+    sortedJobIndices = sortperm(vec(totalTimes), rev = true)
+    nehSolution = @time PFSP_Heuristic(inputs, sortedJobIndices, eq, f)
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan && nIter < inputs.nJobs
         nIter += 1
-        biasedJobs = createBiasedJobsSequence(sortedJobs, rng)
-        newSolution = PFSP_Heuristic(inputs, biasedJobs)
+        biasedJobs = createBiasedJobsSequence(sortedJobIndices, rng)
+        newSolution = PFSP_Heuristic(inputs, biasedJobs, eq, f)
         if newSolution.makespan < baseSolution.makespan
             baseSolution = newSolution
         end
@@ -74,15 +133,20 @@ function PFSP_Multistart(inputs::Inputs, test::TestData, rng::AbstractRNG)
     return baseSolution
 end
 
-function localSearch(solution::Solution, inputs::Inputs, rng::AbstractRNG)
+function localSearch(
+    solution::Solution,
+    inputs::Inputs,
+    rng::AbstractRNG,
+    eq::Array{Int},
+    f::Array{Int},
+)
     improve = true
     while improve
         improve = false
         for index in randperm(rng, length(solution.jobs))
-            job = solution.jobs[index]
             newSolution = Solution(solution.jobs[:], solution.makespan, 0)
-            deleteat!(newSolution.jobs, index)
-            insertJobIntoSequence(newSolution, inputs, index, job)
+            job = popat!(newSolution.jobs, index)
+            insertJobIntoSequence(newSolution, inputs, index, job, eq, f)
             if newSolution.makespan < solution.makespan
                 solution = newSolution
                 improve = true
@@ -92,7 +156,13 @@ function localSearch(solution::Solution, inputs::Inputs, rng::AbstractRNG)
     return solution
 end
 
-function perturbation(baseSolution::Solution, inputs::Inputs, rng::AbstractRNG)
+function perturbation(
+    baseSolution::Solution,
+    inputs::Inputs,
+    rng::AbstractRNG,
+    eq::Array{Int},
+    f::Array{Int},
+)
     solution = Solution()
     solution.jobs = copy(baseSolution.jobs)
     solution.makespan = baseSolution.makespan
@@ -106,17 +176,21 @@ function perturbation(baseSolution::Solution, inputs::Inputs, rng::AbstractRNG)
     end
     # Insert the left-most swapped job where the makespan is minimized
     aJob = splice!(solution.jobs, aIndex)
-    insertJobIntoSequence(solution, inputs, aIndex, aJob)
+    insertJobIntoSequence(solution, inputs, aIndex, aJob, eq, f)
     # Insert the right-most swapped job where the makespan is minimized
     bJob = splice!(solution.jobs, bIndex)
-    insertJobIntoSequence(solution, inputs, bIndex, bJob)
+    insertJobIntoSequence(solution, inputs, bIndex, bJob, eq, f)
     return solution
 end
 
 function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
+    eq = zeros(Int, inputs.nJobs, inputs.nMachines)
+    f = zeros(Int, inputs.nJobs, inputs.nMachines)
+    t = 0.005
+
     # Create a base solution using a randomized NEH approach
-    baseSolution = PFSP_Multistart(inputs, test, rng)
-    baseSolution = localSearch(baseSolution, inputs, rng)
+    baseSolution = @time PFSP_Multistart(inputs, test, rng, eq, f)
+    baseSolution = @time localSearch(baseSolution, inputs, rng, eq, f)
     bestSolution = baseSolution
 
     # Start the iterated local search process
@@ -124,10 +198,10 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
     elapsedTime = 0
     startTime = time()
     maxTime = inputs.nJobs * inputs.nMachines * t
-    while elapsedTime < maxTime
+    @time while elapsedTime < maxTime
         # Perturb the base solution to find a new solution
-        solution = perturbation(baseSolution, inputs, rng)
-        solution = localSearch(solution, inputs, rng)
+        solution = perturbation(baseSolution, inputs, rng, eq, f)
+        solution = localSearch(solution, inputs, rng, eq, f)
         # Check if the solution is adept to be the new base solution
         delta = solution.makespan - baseSolution.makespan
         if delta < 0
@@ -148,7 +222,7 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
 end
 
 function printSolution(solution::Solution)
-    println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
+    # println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
     println("Makespan: $(round(solution.makespan, digits=2))")
     println("Time: $(round(solution.time, digits=2))")
 end

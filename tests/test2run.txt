@@ -1,2 +1,2 @@
 # instanceName | maxTime | nIter | distCrit | betaMin | betaMax | distCand | betaMin2 | betaMax2 | seed | shortSim | longSim | variance | execType
-tai108_200_20	300	100000000	u	1	1	g	0.1	0.3	8634452	100	1000	1	0
+tai117_500_20	300	100000000	u	1	1	g	0.1	0.3	8634452	100	1000	1	0
