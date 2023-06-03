@@ -5,7 +5,7 @@ include("pyarray.jl")
 include("objects.jl")
 
 const BENCHMARK_NEH = false
-const BENCHMARK_RUNS = 20
+const BENCHMARK_RUNS = 100
 
 const t = 0.01
 
@@ -127,7 +127,6 @@ function PFSP_Multistart(inputs::Inputs, rng::AbstractRNG, eq::Array{Int}, f::Ar
     if BENCHMARK_NEH
         return nehSolution
     end
-    println("NEH makespan: $(nehSolution.makespan)")
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan && nIter < inputs.nJobs
@@ -152,8 +151,9 @@ function localSearch(
     while improve
         improve = false
         for index in randperm(rng, length(solution.jobs))
+            job = solution.jobs[index]
             newSolution = Solution(solution.jobs[:], solution.makespan, 0)
-            job = popat!(newSolution.jobs, index)
+            deleteat!(newSolution.jobs, index)
             insertJobIntoSequence(newSolution, inputs, index, job, eq, f)
             if newSolution.makespan < solution.makespan
                 solution = newSolution
@@ -200,10 +200,9 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
     if BENCHMARK_NEH
         return baseSolution
     end
-    println("Multistart makespan: $(baseSolution.makespan)")
     baseSolution = localSearch(baseSolution, inputs, rng, eq, f)
     bestSolution = baseSolution
-    println("LS makespan: $(bestSolution.makespan)")
+    println("Multistart LS makespan: $(bestSolution.makespan)")
 
     # Start the iterated local search process
     credit = 0
@@ -237,13 +236,13 @@ function printSolution(solution, print_solution=false)
     if print_solution
         println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
     end
-    println("ILS Makespan: $(round(solution.makespan, digits=2))")
+    println("Makespan: $(round(solution.makespan, digits=2))")
     println("Time: $(round(solution.time, digits=2))")
 end
 
 
 function main()
-    base_path = "/Users/mtabares/dev/icso-neh/"
+    base_path = "/home/mtabares/dev/icso-neh"
 
     # Read tests from the file
     tests = readTests(joinpath(base_path, "tests", "test2run.txt"))

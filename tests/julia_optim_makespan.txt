@@ -1,0 +1,24 @@
+Julia Optimised: OBD tai031_50_5
+Multistart LS makespan: 2724.0
+Makespan: 2724.0
+Time: 0.0
+Julia Optimised: OBD tai071_100_10
+Multistart LS makespan: 5828.0
+Makespan: 5779.0
+Time: 0.85
+Julia Optimised: OBD tai081_100_20
+Multistart LS makespan: 6459.0
+Makespan: 6346.0
+Time: 18.24
+Julia Optimised: OBD tai091_200_10
+Multistart LS makespan: 10919.0
+Makespan: 10919.0
+Time: 0.0
+Julia Optimised: OBD tai101_200_20
+Multistart LS makespan: 11461.0
+Makespan: 11372.0
+Time: 6.28
+Julia Optimised: OBD tai117_500_20
+Multistart LS makespan: 26660.0
+Makespan: 26618.0
+Time: 51.54

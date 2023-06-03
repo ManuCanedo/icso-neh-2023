@@ -8,7 +8,7 @@ from inputs import readTests, readInputs
 from objects import Solution
 
 BENCHMARK_NEH = False
-BENCHMARK_RUNS = 20
+BENCHMARK_RUNS = 100
 
 t = 0.01
 
@@ -57,7 +57,6 @@ def PFSP_Multistart(inputs, test, rng):
     if BENCHMARK_NEH:
         return nehSolution
 
-    print(f"NEH makespan: {nehSolution.makespan}")
     baseSolution = nehSolution
     nIter = 0
     while baseSolution.makespan >= nehSolution.makespan and nIter < inputs.nJobs:
@@ -109,10 +108,9 @@ def detExecution(inputs, test, rng):
     if BENCHMARK_NEH:
         return baseSolution
 
-    print(f"Multistart makespan: {baseSolution.makespan}")
     baseSolution = localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
-    print(f"LS makespan: {bestSolution.makespan}")
+    print(f"Multistart LS makespan: {bestSolution.makespan}")
 
     # Start the iterated local search process
     credit = 0
@@ -142,11 +140,11 @@ def detExecution(inputs, test, rng):
 def printSolution(solution, print_solution = False):
     if print_solution:
         print("Jobs: " + ", ".join("{:d}".format(job) for job in solution.jobs))
-    print("ILS Makespan: {:.2f}".format(solution.makespan))
+    print("Makespan: {:.2f}".format(solution.makespan))
     print("Time: {:.2f}".format(solution.time))
 
 if __name__ == "__main__":
-    base_path = "/Users/mtabares/dev/icso-neh/"
+    base_path = "/home/mtabares/dev/icso-neh"
 
     # Read tests from the file
     tests = readTests(os.path.join(base_path, "tests", "test2run.txt"))

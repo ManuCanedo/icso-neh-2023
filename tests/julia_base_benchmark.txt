@@ -1,0 +1,36 @@
+Julia Base: OBD tai031_50_5
+Average elapsed time: 0.0009856510162353515 seconds
+Minimum elapsed time: 0.00013399124145507812 seconds
+Maximum elapsed time: 0.0742030143737793 seconds
+Makespan: 2733.0
+Time: 0.0
+Julia Base: OBD tai071_100_10
+Average elapsed time: 0.0008593392372131347 seconds
+Minimum elapsed time: 0.0006601810455322266 seconds
+Maximum elapsed time: 0.005138874053955078 seconds
+Makespan: 5846.0
+Time: 0.0
+Julia Base: OBD tai081_100_20
+Average elapsed time: 0.001272728443145752 seconds
+Minimum elapsed time: 0.0011668205261230469 seconds
+Maximum elapsed time: 0.0021560192108154297 seconds
+Makespan: 6541.0
+Time: 0.0
+Julia Base: OBD tai091_200_10
+Average elapsed time: 0.002491598129272461 seconds
+Minimum elapsed time: 0.0023119449615478516 seconds
+Maximum elapsed time: 0.0034799575805664062 seconds
+Makespan: 10942.0
+Time: 0.0
+Julia Base: OBD tai101_200_20
+Average elapsed time: 0.004535326957702637 seconds
+Minimum elapsed time: 0.004358053207397461 seconds
+Maximum elapsed time: 0.005059957504272461 seconds
+Makespan: 11594.0
+Time: 0.0
+Julia Base: OBD tai117_500_20
+Average elapsed time: 0.030267562866210938 seconds
+Minimum elapsed time: 0.0272979736328125 seconds
+Maximum elapsed time: 0.08907389640808105 seconds
+Makespan: 26797.0
+Time: 0.0
