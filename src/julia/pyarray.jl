@@ -2,6 +2,10 @@ struct PythonLikeArray{T,N} <: AbstractArray{T,N}
     data::Array{T,N}
 end
 
+function PythonLikeArray(dims::Vararg{Int,N}) where {N}
+    return PythonLikeArray(zeros(dims...))
+end
+
 Base.size(A::PythonLikeArray) = size(A.data)
 
 function _handle_negative_index(i::Int, dim_size::Int)
@@ -19,7 +23,3 @@ function Base.setindex!(A::PythonLikeArray{T,N}, v, I::Vararg{Int,N}) where {T,N
 end
 
 Base.IndexStyle(::Type{<:PythonLikeArray}) = IndexLinear()
-
-function toPythonLikeArray(arr::Array{T,N}) where {T,N}
-    return PythonLikeArray(arr)
-end

@@ -1,19 +1,20 @@
 using Dates
-using Profile
-using ProfileSVG
 
 include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
 
-t = 0.005
+const BENCHMARK_NEH = false
+const BENCHMARK_RUNS = 20
+
+const t = 0.01
 
 function insertJobIntoSequence(solution, inputs, k, kJob)
     n = length(solution.jobs)
     # Create earliest, tail, and relative completion times structures
-    e = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
-    q = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
-    f = toPythonLikeArray(zeros(n + 2, inputs.nMachines + 1))
+    e = PythonLikeArray(n + 2, inputs.nMachines + 1)
+    q = PythonLikeArray(n + 2, inputs.nMachines + 1)
+    f = PythonLikeArray(n + 2, inputs.nMachines + 1)
     # Compute earliest, tail, and relative completion times values
     for i = 1:n+1
         for j = 1:inputs.nMachines
@@ -29,7 +30,7 @@ function insertJobIntoSequence(solution, inputs, k, kJob)
         end
     end
     # Find position of minimum makespan
-    Mi = maximum(f.data + q.data, dims = 2)[1:end]
+    Mi = maximum(f.data + q.data, dims=2)[1:end]
     index = argmin(Mi[1:min(k, end)])
     # Insert job in the sequence and update makespan
     insert!(solution.jobs, index, kJob)
@@ -57,9 +58,12 @@ function createBiasedJobsSequence(jobs, rng)
 end
 
 function PFSP_Multistart(inputs, rng)
-    totalTimes = sum(inputs.times, dims = 2)
-    sortedJobIndices = sortperm(vec(totalTimes), rev = true)
-    nehSolution = @time PFSP_Heuristic(inputs, sortedJobIndices)
+    totalTimes = sum(inputs.times, dims=2)
+    sortedJobIndices = sortperm(vec(totalTimes), rev=true)
+    nehSolution = PFSP_Heuristic(inputs, sortedJobIndices)
+    if BENCHMARK_NEH
+        return nehSolution
+    end
     println("NEH makespan: $(nehSolution.makespan)")
     baseSolution = nehSolution
     nIter = 0
@@ -115,11 +119,14 @@ end
 
 function detExecution(inputs, test, rng)
     # Create a base solution using a randomized NEH approach
-    baseSolution = @time PFSP_Multistart(inputs, rng)
+    baseSolution = PFSP_Multistart(inputs, rng)
+    if BENCHMARK_NEH
+        return baseSolution
+    end
     println("Multistart makespan: $(baseSolution.makespan)")
-    baseSolution = @time localSearch(baseSolution, inputs, rng)
+    baseSolution = localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
-    println("Multistart makespan: $(bestSolution.makespan)")
+    println("LS makespan: $(bestSolution.makespan)")
 
     # Start the iterated local search process
     credit = 0
@@ -149,12 +156,13 @@ function detExecution(inputs, test, rng)
     return bestSolution
 end
 
-function printSolution(solution)
-    # println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
-    println("Makespan: $(round(solution.makespan, digits=2))")
+function printSolution(solution, print_solution=false)
+    if print_solution
+        println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
+    end
+    println("ILS Makespan: $(round(solution.makespan, digits=2))")
     println("Time: $(round(solution.time, digits=2))")
 end
-
 
 function main()
     base_path = "/Users/mtabares/dev/icso-neh/"
@@ -167,9 +175,29 @@ function main()
         inputs = readInputs(joinpath(base_path, "inputs"), test.instanceName)
         rng = MersenneTwister(test.seed)
 
-        # Compute the best deterministic solution
-        solution = detExecution(inputs, test, rng)
-        println("OBD $(inputs.name)")
+        println("Julia Base: OBD $(inputs.name)")
+        solution = Solution()
+
+        if BENCHMARK_NEH
+            elapsed_times = Float64[]
+            for _ in 1:BENCHMARK_RUNS
+                start_time = time()
+                # Compute the best deterministic solution
+                solution = detExecution(inputs, test, rng)
+                end_time = time()
+                push!(elapsed_times, end_time - start_time)
+            end
+
+            avg_time = sum(elapsed_times) / length(elapsed_times)
+            min_time = minimum(elapsed_times)
+            max_time = maximum(elapsed_times)
+            println("Average elapsed time: $(avg_time) seconds")
+            println("Minimum elapsed time: $(min_time) seconds")
+            println("Maximum elapsed time: $(max_time) seconds")
+        else
+            # Compute the best deterministic solution
+            solution = detExecution(inputs, test, rng)
+        end
         printSolution(solution)
     end
 end

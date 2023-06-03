@@ -1,10 +1,10 @@
 mutable struct Solution
     jobs::Vector{Int}
-    makespan::Int
-    time::Float32
+    makespan::Float64
+    time::Float64
 
     function Solution()
-        new([], 0, 0)
+        new([], 0.0, 0.0)
     end
     function Solution(jobs, makespan, time)
         new(jobs, makespan, time)

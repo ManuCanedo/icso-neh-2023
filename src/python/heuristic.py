@@ -7,7 +7,10 @@ import time
 from inputs import readTests, readInputs
 from objects import Solution
 
-t = 0.005
+BENCHMARK_NEH = False
+BENCHMARK_RUNS = 20
+
+t = 0.01
 
 def insertJobIntoSequence(solution, inputs, k, kJob):
     n = len(solution.jobs)
@@ -51,6 +54,9 @@ def PFSP_Multistart(inputs, test, rng):
     totalTimes = np.sum(inputs.times, axis = 1)
     sortedJobs = np.flip(np.argsort(totalTimes)).tolist()
     nehSolution = PFSP_Heuristic(inputs, sortedJobs)
+    if BENCHMARK_NEH:
+        return nehSolution
+
     print(f"NEH makespan: {nehSolution.makespan}")
     baseSolution = nehSolution
     nIter = 0
@@ -100,6 +106,9 @@ def perturbation(baseSolution, inputs, rng):
 def detExecution(inputs, test, rng):
     # Create a base solution using a randomized NEH approach
     baseSolution = PFSP_Multistart(inputs, test, rng)
+    if BENCHMARK_NEH:
+        return baseSolution
+
     print(f"Multistart makespan: {baseSolution.makespan}")
     baseSolution = localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
@@ -120,7 +129,7 @@ def detExecution(inputs, test, rng):
             baseSolution = solution
             if solution.makespan < bestSolution.makespan:
                 bestSolution = solution
-                bestSolution.time = time.process_time()
+                bestSolution.time = time.process_time() - startTime
         elif 0 < delta <= credit:
             credit = 0
             baseSolution = solution
@@ -130,9 +139,10 @@ def detExecution(inputs, test, rng):
 
     return bestSolution
 
-def printSolution(solution):
-    print("Jobs: " + ", ".join("{:d}".format(job) for job in solution.jobs))
-    print("Makespan: {:.2f}".format(solution.makespan))
+def printSolution(solution, print_solution = False):
+    if print_solution:
+        print("Jobs: " + ", ".join("{:d}".format(job) for job in solution.jobs))
+    print("ILS Makespan: {:.2f}".format(solution.makespan))
     print("Time: {:.2f}".format(solution.time))
 
 if __name__ == "__main__":
@@ -145,8 +155,28 @@ if __name__ == "__main__":
         # Read inputs for the test inputs
         inputs = readInputs(os.path.join(base_path, "inputs"), test.instanceName)
         rng = np.random.default_rng(test.seed)
+        
+        print("Python Base: OBD {:s}".format(inputs.name))
+        solution = Solution()
 
-        # Compute the best deterministic solution
-        solution = detExecution(inputs, test, rng)
-        # print("OBD {:s}".format(inputs.name))
-        # printSolution(solution)
+        if BENCHMARK_NEH:
+            elapsed_times = []
+            for _ in range(BENCHMARK_RUNS):
+                start_time = time.time()
+                # Compute the best deterministic solution
+                solution = detExecution(inputs, test, rng)
+                end_time = time.time()
+                elapsed_times.append(end_time - start_time)
+
+            avg_time = sum(elapsed_times) / len(elapsed_times)
+            min_time = min(elapsed_times)
+            max_time = max(elapsed_times)
+            print(f"Average elapsed time: {avg_time} seconds")
+            print(f"Minimum elapsed time: {min_time} seconds")
+            print(f"Maximum elapsed time: {max_time} seconds")
+        else:
+            # Compute the best deterministic solution
+            solution = detExecution(inputs, test, rng)
+
+        printSolution(solution)
+

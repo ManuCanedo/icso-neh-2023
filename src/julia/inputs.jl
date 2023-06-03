@@ -5,15 +5,15 @@ struct TestData
     maxTime::Int
     nIter::Int
     distCrit::String
-    betaMin::Float32
-    betaMax::Float32
+    betaMin::Float64
+    betaMax::Float64
     distCand::String
-    betaMin2::Float32
-    betaMax2::Float32
+    betaMin2::Float64
+    betaMax2::Float64
     seed::Int
     shortSim::Int
     longSim::Int
-    variance::Float32
+    variance::Float64
     execType::Int
     TYPE_CRITERIA::Int
     TYPE_CANDIDATE::Int
@@ -39,15 +39,15 @@ struct TestData
             parse(Int, maxTime),
             parse(Int, nIter),
             distCrit,
-            parse(Float32, betaMin),
-            parse(Float32, betaMax),
+            parse(Float64, betaMin),
+            parse(Float64, betaMax),
             distCand,
-            parse(Float32, betaMin2),
-            parse(Float32, betaMax2),
+            parse(Float64, betaMin2),
+            parse(Float64, betaMax2),
             parse(Int, seed),
             parse(Int, shortSim),
             parse(Int, longSim),
-            parse(Float32, variance),
+            parse(Float64, variance),
             parse(Int, execType),
             0,
             1,

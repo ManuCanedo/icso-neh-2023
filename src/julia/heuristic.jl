@@ -1,10 +1,13 @@
 using Dates
-using Profile
-using ProfileSVG
 
 include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
+
+const BENCHMARK_NEH = false
+const BENCHMARK_RUNS = 20
+
+const t = 0.01
 
 function populate_e!(jobs::Vector{Int}, inputs::Inputs, index::Int, e::Array{Int})
     e[1, 1] = inputs.times[jobs[1], 1]
@@ -118,9 +121,12 @@ function createBiasedJobsSequence(jobs::Vector{Int}, rng::AbstractRNG)
 end
 
 function PFSP_Multistart(inputs::Inputs, rng::AbstractRNG, eq::Array{Int}, f::Array{Int})
-    totalTimes = sum(inputs.times, dims = 2)
-    sortedJobIndices = sortperm(vec(totalTimes), rev = true)
-    nehSolution = @time PFSP_Heuristic(inputs, sortedJobIndices, eq, f)
+    totalTimes = sum(inputs.times, dims=2)
+    sortedJobIndices = sortperm(vec(totalTimes), rev=true)
+    nehSolution = PFSP_Heuristic(inputs, sortedJobIndices, eq, f)
+    if BENCHMARK_NEH
+        return nehSolution
+    end
     println("NEH makespan: $(nehSolution.makespan)")
     baseSolution = nehSolution
     nIter = 0
@@ -186,14 +192,16 @@ function perturbation(
 end
 
 function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
-    eq = zeros(Int, inputs.nJobs, inputs.nMachines)
-    f = zeros(Int, inputs.nJobs, inputs.nMachines)
-    t = 0.005
+    eq = Array{Int}(undef, inputs.nJobs, inputs.nMachines)
+    f = Array{Int}(undef, inputs.nJobs, inputs.nMachines)
 
     # Create a base solution using a randomized NEH approach
-    baseSolution = @time PFSP_Multistart(inputs, rng, eq, f)
+    baseSolution = PFSP_Multistart(inputs, rng, eq, f)
+    if BENCHMARK_NEH
+        return baseSolution
+    end
     println("Multistart makespan: $(baseSolution.makespan)")
-    baseSolution = @time localSearch(baseSolution, inputs, rng, eq, f)
+    baseSolution = localSearch(baseSolution, inputs, rng, eq, f)
     bestSolution = baseSolution
     println("LS makespan: $(bestSolution.makespan)")
 
@@ -202,7 +210,7 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
     elapsedTime = 0
     startTime = time()
     maxTime = inputs.nJobs * inputs.nMachines * t
-    @time while elapsedTime < maxTime
+    while elapsedTime < maxTime
         # Perturb the base solution to find a new solution
         solution = perturbation(baseSolution, inputs, rng, eq, f)
         solution = localSearch(solution, inputs, rng, eq, f)
@@ -225,9 +233,11 @@ function detExecution(inputs::Inputs, test::TestData, rng::MersenneTwister)
     return bestSolution
 end
 
-function printSolution(solution::Solution)
-    # println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
-    println("Makespan: $(round(solution.makespan, digits=2))")
+function printSolution(solution, print_solution=false)
+    if print_solution
+        println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
+    end
+    println("ILS Makespan: $(round(solution.makespan, digits=2))")
     println("Time: $(round(solution.time, digits=2))")
 end
 
@@ -243,9 +253,29 @@ function main()
         inputs = readInputs(joinpath(base_path, "inputs"), test.instanceName)
         rng = MersenneTwister(test.seed)
 
-        # Compute the best deterministic solution
-        solution = detExecution(inputs, test, rng)
-        println("OBD $(inputs.name)")
+        println("Julia Optimised: OBD $(inputs.name)")
+        solution = Solution()
+
+        if BENCHMARK_NEH
+            elapsed_times = Float64[]
+            for _ in 1:BENCHMARK_RUNS
+                start_time = time()
+                # Compute the best deterministic solution
+                solution = detExecution(inputs, test, rng)
+                end_time = time()
+                push!(elapsed_times, end_time - start_time)
+            end
+
+            avg_time = sum(elapsed_times) / length(elapsed_times)
+            min_time = minimum(elapsed_times)
+            max_time = maximum(elapsed_times)
+            println("Average elapsed time: $(avg_time) seconds")
+            println("Minimum elapsed time: $(min_time) seconds")
+            println("Maximum elapsed time: $(max_time) seconds")
+        else
+            # Compute the best deterministic solution
+            solution = detExecution(inputs, test, rng)
+        end
         printSolution(solution)
     end
 end
