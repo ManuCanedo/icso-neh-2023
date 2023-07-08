@@ -3,14 +3,17 @@
 import numpy as np
 import os
 import time
+import csv
+import sys
 
 from inputs import readTests, readInputs
 from objects import Solution
 
-BENCHMARK_NEH = False
+BENCHMARK_NEH = True
 BENCHMARK_RUNS = 100
 
 t = 0.01
+
 
 def insertJobIntoSequence(solution, inputs, k, kJob):
     n = len(solution.jobs)
@@ -22,23 +25,27 @@ def insertJobIntoSequence(solution, inputs, k, kJob):
         # Compute earliest, tail, and relative completion times values
         for j in range(inputs.nMachines):
             if i < n:
-                e[i, j] = max(e[i, j - 1], e[i - 1, j]) + inputs.times[solution.jobs[i], j]
+                e[i, j] = max(e[i, j - 1], e[i - 1, j]) + \
+                    inputs.times[solution.jobs[i], j]
             if i > 0:
-                q[n - i, inputs.nMachines - j - 1] = max(q[n - i, inputs.nMachines - j], q[n - i + 1, inputs.nMachines - j - 1]) + inputs.times[solution.jobs[n - i], inputs.nMachines - j - 1]
+                q[n - i, inputs.nMachines - j - 1] = max(q[n - i, inputs.nMachines - j], q[n - i + 1,
+                                                         inputs.nMachines - j - 1]) + inputs.times[solution.jobs[n - i], inputs.nMachines - j - 1]
             f[i, j] = max(f[i, j - 1], e[i - 1, j]) + inputs.times[kJob, j]
     # Find position of minimum makespan
-    Mi = np.amax(f + q, axis = 1)[:-1]
+    Mi = np.amax(f + q, axis=1)[:-1]
     index = np.where(Mi[:k + 1] == np.amin(Mi[:k + 1]))[0][0]
     # Insert job in the sequence and update makespan
     solution.jobs.insert(index, kJob)
     solution.makespan = Mi[index]
 
+
 def PFSP_Heuristic(inputs, jobs):
     solution = Solution()
     solution.jobs = [jobs[0]]
-    for i, job in enumerate(jobs[1:], start = 1):
+    for i, job in enumerate(jobs[1:], start=1):
         insertJobIntoSequence(solution, inputs, i, job)
     return solution
+
 
 def createBiasedJobsSequence(jobs, rng):
     jobsCopy = jobs.copy()
@@ -50,8 +57,9 @@ def createBiasedJobsSequence(jobs, rng):
         jobsCopy.pop(index)
     return biasedJobs
 
+
 def PFSP_Multistart(inputs, test, rng):
-    totalTimes = np.sum(inputs.times, axis = 1)
+    totalTimes = np.sum(inputs.times, axis=1)
     sortedJobs = np.flip(np.argsort(totalTimes)).tolist()
     nehSolution = PFSP_Heuristic(inputs, sortedJobs)
     if BENCHMARK_NEH:
@@ -67,11 +75,12 @@ def PFSP_Multistart(inputs, test, rng):
             baseSolution = newSolution
     return baseSolution
 
+
 def localSearch(solution, inputs, rng):
     improve = True
     while improve == True:
         improve = False
-        for job in rng.choice(solution.jobs, inputs.nJobs, replace = False):
+        for job in rng.choice(solution.jobs, inputs.nJobs, replace=False):
             newSolution = Solution()
             newSolution.jobs = solution.jobs.copy()
             newSolution.makespan = solution.makespan
@@ -85,15 +94,17 @@ def localSearch(solution, inputs, rng):
                 improve = True
     return solution
 
+
 def perturbation(baseSolution, inputs, rng):
     solution = Solution()
     solution.jobs = baseSolution.jobs.copy()
     solution.makespan = baseSolution.makespan
     # Select two random jobs from the sequence
-    aIndex, bIndex = rng.choice(inputs.nJobs, 2, replace = False)
+    aIndex, bIndex = rng.choice(inputs.nJobs, 2, replace=False)
     # Swap the jobs at the two random positions
     solution.jobs[aIndex], solution.jobs[bIndex] = solution.jobs[bIndex], solution.jobs[aIndex]
-    if bIndex < aIndex: aIndex, bIndex = bIndex, aIndex
+    if bIndex < aIndex:
+        aIndex, bIndex = bIndex, aIndex
     # Insert the left-most swapped job where the makespan is minimized
     aJob = solution.jobs.pop(aIndex)
     insertJobIntoSequence(solution, inputs, aIndex, aJob)
@@ -101,6 +112,7 @@ def perturbation(baseSolution, inputs, rng):
     bJob = solution.jobs.pop(bIndex)
     insertJobIntoSequence(solution, inputs, bIndex, bJob)
     return solution
+
 
 def detExecution(inputs, test, rng):
     # Create a base solution using a randomized NEH approach
@@ -137,44 +149,62 @@ def detExecution(inputs, test, rng):
 
     return bestSolution
 
-def printSolution(solution, print_solution = False):
+
+def printSolution(solution, print_solution=False):
     if print_solution:
-        print("Jobs: " + ", ".join("{:d}".format(job) for job in solution.jobs))
+        print("Jobs: " + ", ".join("{:d}".format(job)
+              for job in solution.jobs))
     print("Makespan: {:.2f}".format(solution.makespan))
     print("Time: {:.2f}".format(solution.time))
 
+
+def benchmark_execution(inputs, test, rng):
+    elapsed_times = []
+    for _ in range(BENCHMARK_RUNS):
+        start_time = time.time()
+        solution = detExecution(inputs, test, rng)
+        end_time = time.time()
+        elapsed_times.append(end_time - start_time)
+    return elapsed_times
+
+
+def write_to_csv(execution_times_dict):
+    with open('execution_times.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Instance Name"] + list(execution_times_dict.keys()))
+        writer.writerows(zip(*execution_times_dict.values()))
+
+
 if __name__ == "__main__":
-    base_path = "/home/mtabares/dev/icso-neh"
+    try:
+        base_path = sys.argv[1]
+    except IndexError:
+        print("Please provide a base path as a command-line argument.")
+        sys.exit(1)
+
+    execution_times_dict = {}
 
     # Read tests from the file
     tests = readTests(os.path.join(base_path, "tests", "test2run.txt"))
 
     for test in tests:
         # Read inputs for the test inputs
-        inputs = readInputs(os.path.join(base_path, "inputs"), test.instanceName)
+        inputs = readInputs(os.path.join(
+            base_path, "inputs"), test.instanceName)
         rng = np.random.default_rng(test.seed)
-        
+
         print("Python Base: OBD {:s}".format(inputs.name))
         solution = Solution()
 
         if BENCHMARK_NEH:
-            elapsed_times = []
-            for _ in range(BENCHMARK_RUNS):
-                start_time = time.time()
-                # Compute the best deterministic solution
-                solution = detExecution(inputs, test, rng)
-                end_time = time.time()
-                elapsed_times.append(end_time - start_time)
+            elapsed_times = benchmark_execution(inputs, test, rng)
 
-            avg_time = sum(elapsed_times) / len(elapsed_times)
-            min_time = min(elapsed_times)
-            max_time = max(elapsed_times)
-            print(f"Average elapsed time: {avg_time} seconds")
-            print(f"Minimum elapsed time: {min_time} seconds")
-            print(f"Maximum elapsed time: {max_time} seconds")
+            if test.instanceName not in execution_times_dict:
+                execution_times_dict[test.instanceName] = []
+            execution_times_dict[test.instanceName].extend(elapsed_times)
         else:
             # Compute the best deterministic solution
             solution = detExecution(inputs, test, rng)
+            printSolution(solution)
 
-        printSolution(solution)
-
+    write_to_csv(execution_times_dict)

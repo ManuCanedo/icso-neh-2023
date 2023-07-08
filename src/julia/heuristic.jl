@@ -1,11 +1,13 @@
+using CSV
+using DataFrames
 using Dates
 
 include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
 
-const BENCHMARK_NEH = false
-const BENCHMARK_RUNS = 100
+const BENCHMARK_NEH = true
+const BENCHMARK_RUNS = 1000
 
 const t = 0.01
 
@@ -240,43 +242,63 @@ function printSolution(solution, print_solution=false)
     println("Time: $(round(solution.time, digits=2))")
 end
 
+function benchmark_execution(inputs, test, rng)
+    elapsed_times = Float64[]
+    for _ in 1:BENCHMARK_RUNS
+        start_time = time()
+        solution = detExecution(inputs, test, rng)
+        end_time = time()
+        push!(elapsed_times, end_time - start_time)
+    end
+    return elapsed_times
+end
+
+function write_to_csv(tests_dir, execution_times_dict)
+    dict_keys = collect(keys(execution_times_dict))
+    dict_values = collect(values(execution_times_dict))
+    csv_data = DataFrame(dict_values, Symbol.(dict_keys))
+    data_dir = joinpath(tests_dir, "$(basename(PROGRAM_FILE)).csv")
+    CSV.write(data_dir, csv_data)
+end
 
 function main()
-    base_path = "/home/mtabares/dev/icso-neh"
+    base_dir = ""
+    try
+        base_dir = ARGS[1]
+    catch
+        println("Please provide a base path as a command-line argument.")
+        exit(1)
+    end
 
     # Read tests from the file
-    tests = readTests(joinpath(base_path, "tests", "test2run.txt"))
+    tests_dir = joinpath(base_dir, "tests")
+    tests = readTests(joinpath(tests_dir, "test2run.txt"))
+    execution_times_dict = Dict()
 
     for test in tests
         # Read inputs for the test inputs
-        inputs = readInputs(joinpath(base_path, "inputs"), test.instanceName)
+        inputs_dir = joinpath(base_dir, "inputs")
+        inputs = readInputs(inputs_dir, test.instanceName)
         rng = MersenneTwister(test.seed)
 
-        println("Julia Optimised: OBD $(inputs.name)")
+        println("Julia Base: OBD $(inputs.name)")
         solution = Solution()
 
         if BENCHMARK_NEH
-            elapsed_times = Float64[]
-            for _ in 1:BENCHMARK_RUNS
-                start_time = time()
-                # Compute the best deterministic solution
-                solution = detExecution(inputs, test, rng)
-                end_time = time()
-                push!(elapsed_times, end_time - start_time)
+            # Benchmark NEH execution
+            elapsed_times = benchmark_execution(inputs, test, rng)
+            if !haskey(execution_times_dict, test.instanceName)
+                execution_times_dict[test.instanceName] = Float64[]
             end
-
-            avg_time = sum(elapsed_times) / length(elapsed_times)
-            min_time = minimum(elapsed_times)
-            max_time = maximum(elapsed_times)
-            println("Average elapsed time: $(avg_time) seconds")
-            println("Minimum elapsed time: $(min_time) seconds")
-            println("Maximum elapsed time: $(max_time) seconds")
+            append!(execution_times_dict[test.instanceName], elapsed_times)
         else
             # Compute the best deterministic solution
             solution = detExecution(inputs, test, rng)
+            printSolution(solution)
         end
-        printSolution(solution)
     end
+    write_to_csv(tests_dir, execution_times_dict)
 end
 
 main()
+

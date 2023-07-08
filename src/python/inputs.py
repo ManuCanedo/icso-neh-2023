@@ -34,7 +34,7 @@ def readTests(fileName):
 	tests = []
 	with open(fileName) as f:
 		for line in f:
-			tokens = line.split("\t")
+			tokens = line.split(" ")
 			if "#" not in tokens[0]:
 				test = Test(*tokens)
 				tests.append(test)
