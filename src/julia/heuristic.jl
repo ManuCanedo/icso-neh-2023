@@ -11,57 +11,81 @@ const BENCHMARK_RUNS = 1000
 
 const t = 0.01
 
-function populate_e!(jobs::Vector{Int}, inputs::Inputs, index::Int, e::Array{Int})
-    e[1, 1] = inputs.times[jobs[1], 1]
-
-    for j = 2:inputs.nMachines
-        e[1, j] = inputs.times[jobs[1], j] + e[1, j-1]
-    end
-    for i = 2:index
-        e[i, 1] = inputs.times[jobs[i], 1] + e[i-1, 1]
+function populate_e!(
+    jobs::Vector{Int},
+    inputs::Inputs,
+    index::Int,
+    e::Array{Int},
+)
+    @inbounds begin
+        e[1, 1] = inputs.times[jobs[1], 1]
 
         for j = 2:inputs.nMachines
-            e[i, j] = inputs.times[jobs[i], j] + max(e[i-1, j], e[i, j-1])
+            e[1, j] = inputs.times[jobs[1], j] + e[1, j-1]
+        end
+        for i = 2:index
+            e[i, 1] = inputs.times[jobs[i], 1] + e[i-1, 1]
+        end
+        for j = 2:inputs.nMachines
+            for i = 2:index
+                e[i, j] = inputs.times[jobs[i], j] + max(e[i-1, j], e[i, j-1])
+            end
         end
     end
 end
 
-function populate_q!(jobs::Vector{Int}, inputs::Inputs, index::Int, q::Array{Int})
-    for j = inputs.nMachines:-1:1
-        q[index, j] = 0
-    end
-    if index == 1
-        return
-    end
-    q[index-1, inputs.nMachines] = inputs.times[jobs[index-1], inputs.nMachines]
-
-    for j = inputs.nMachines-1:-1:1
-        q[index-1, j] = inputs.times[jobs[index-1], j] + q[index-1, j+1]
-    end
-    if index == 2
-        return
-    end
-    for i = index-2:-1:1
-        q[i, inputs.nMachines] =
-            inputs.times[jobs[i], inputs.nMachines] + q[i+1, inputs.nMachines]
+function populate_q!(
+    jobs::Vector{Int},
+    inputs::Inputs,
+    index::Int,
+    q::Array{Int},
+)
+    @inbounds begin
+        for j = inputs.nMachines:-1:1
+            q[index, j] = 0
+        end
+        if index < 2
+            return
+        end
+        q[index-1, inputs.nMachines] =
+            inputs.times[jobs[index-1], inputs.nMachines]
 
         for j = inputs.nMachines-1:-1:1
-            q[i, j] = inputs.times[jobs[i], j] + max(q[i+1, j], q[i, j+1])
+            q[index-1, j] = inputs.times[jobs[index-1], j] + q[index-1, j+1]
+        end
+        for i = index-2:-1:1
+            q[i, inputs.nMachines] =
+                inputs.times[jobs[i], inputs.nMachines] +
+                q[i+1, inputs.nMachines]
+        end
+        for j = inputs.nMachines-1:-1:1
+            for i = index-2:-1:1
+                q[i, j] = inputs.times[jobs[i], j] + max(q[i+1, j], q[i, j+1])
+            end
         end
     end
 end
 
-function populate_f!(kJob::Int, inputs::Inputs, index::Int, e::Array{Int}, f::Array{Int})
-    f[1, 1] = inputs.times[kJob, 1]
-
-    for j = 2:inputs.nMachines
-        f[1, j] = inputs.times[kJob, j] + f[1, j-1]
-    end
-    for i = 2:index
-        f[i, 1] = inputs.times[kJob, 1] + e[i-1, 1]
+function populate_f!(
+    kJob::Int,
+    inputs::Inputs,
+    index::Int,
+    e::Array{Int},
+    f::Array{Int},
+)
+    @inbounds begin
+        f[1, 1] = inputs.times[kJob, 1]
 
         for j = 2:inputs.nMachines
-            f[i, j] = inputs.times[kJob, j] + max(e[i-1, j], f[i, j-1])
+            f[1, j] = inputs.times[kJob, j] + f[1, j-1]
+        end
+        for i = 2:index
+            f[i, 1] = inputs.times[kJob, 1] + e[i-1, 1]
+        end
+        for j = 2:inputs.nMachines
+            for i = 2:index
+                f[i, j] = inputs.times[kJob, j] + max(e[i-1, j], f[i, j-1])
+            end
         end
     end
 end
@@ -74,15 +98,16 @@ function insertJobIntoSequence(
     eq::Array{Int},
     f::Array{Int},
 )
-    n = length(solution.jobs)
     # Compute earliest, tail, and relative completion times structures
+    n = length(solution.jobs)
     populate_e!(solution.jobs, inputs, n, eq)
     populate_f!(kJob, inputs, n + 1, eq, f)
     populate_q!(solution.jobs, inputs, n + 1, eq)
+
     # Find position of minimum makespan
     index = k
     solution.makespan = typemax(Int)
-    for i = 1:k
+    @inbounds for i = 1:k
         max_sum = 0
         for j = 1:inputs.nMachines
             max_sum = max(f[i, j] + eq[i, j], max_sum)
@@ -92,10 +117,10 @@ function insertJobIntoSequence(
             solution.makespan = max_sum
         end
     end
+
     # Insert job in the sequence and update makespan
     insert!(solution.jobs, min(index, n + 1), kJob)
 end
-
 
 function PFSP_Heuristic(
     inputs::Inputs,

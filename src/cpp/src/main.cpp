@@ -8,7 +8,7 @@
 #include <limits>
 #include <ratio>
 #include <string>
-#include <unordered_map>
+#include <map>
 
 #include "heuristic.h"
 #include "inputs.h"
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
   const auto data_dir = std::filesystem::absolute(argv[1]);
   const auto instances_path = data_dir / INSTANCES_FILENAME;
   const auto runs = size_t{1000};
-  auto execution_times = std::unordered_map<std::string, std::vector<double>>{};
+  auto execution_times = std::map<std::string, std::vector<double>>{};
 
   const auto instance_file = data_dir;
   for (const auto& instance : pfsp::get_lines(instances_path.string())) {
