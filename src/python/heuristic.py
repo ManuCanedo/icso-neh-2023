@@ -10,7 +10,7 @@ from inputs import readTests, readInputs
 from objects import Solution
 
 BENCHMARK_NEH = True
-BENCHMARK_RUNS = 100
+BENCHMARK_RUNS = 1000
 
 t = 0.01
 

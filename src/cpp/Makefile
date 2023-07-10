@@ -4,7 +4,7 @@ INCLUDE := include
 
 # Compile Flags
 CC := g++
-CFLAGS := -I$(INCLUDE) -Wall -Wextra -Werror -Ofast -funroll-loops -march=native -std=c++2a
+CFLAGS := -I$(INCLUDE) -Wall -Wextra -Werror -Ofast -funroll-loops -march=native -std=c++2a -fconcepts
 LDFLAGS := -flto
 TARGET := neh
 
