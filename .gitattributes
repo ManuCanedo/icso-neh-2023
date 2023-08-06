@@ -1,2 +1,2 @@
-*.julia linguist-detectable=false
-*.python linguist-detectable=false
+*.jl linguist-detectable=false
+*.py linguist-detectable=false
