@@ -6,34 +6,41 @@ include("inputs.jl")
 include("pyarray.jl")
 include("objects.jl")
 
-const BENCHMARK_NEH = true
+const BENCHMARK_NEH = false
 const BENCHMARK_RUNS = 1000
 
-const t = 0.01
+const t = 0.05
 
 function insertJobIntoSequence(solution, inputs, k, kJob)
-    n = length(solution.jobs)
     # Create earliest, tail, and relative completion times structures
-    e = PythonLikeArray(inputs.nMachines + 1, n + 2)
-    q = PythonLikeArray(inputs.nMachines + 1, n + 2)
-    f = PythonLikeArray(inputs.nMachines + 1, n + 2)
+    n = lastindex(solution.jobs)
+    e = PythonLikeArray(n + 2, inputs.nMachines + 1)
+    q = PythonLikeArray(n + 2, inputs.nMachines + 1)
+    f = PythonLikeArray(n + 2, inputs.nMachines + 1)
+
     # Compute earliest, tail, and relative completion times values
-    for j = 1:n+1
-        for i = 1:inputs.nMachines
-            if j < n + 1
-                e[i, j] = max(e[i-1, j], e[i, j-1]) + inputs.times[solution.jobs[j], i]
+    for i = 1:n+1
+        for j = 1:inputs.nMachines
+            if i < n + 1
+                e[i, j] =
+                    max(e[i, j-1], e[i-1, j]) +
+                    inputs.times[solution.jobs[i], j]
             end
-            if j > 1
-                q[inputs.nMachines+1-i, n+2-j] =
-                    max(q[inputs.nMachines+2-i, n+2-j], q[inputs.nMachines+1-i, n+3-j]) +
-                    inputs.times[solution.jobs[n+2-j], inputs.nMachines+1-i]
+            if i > 1
+                q[n+2-i, inputs.nMachines+1-j] =
+                    max(
+                        q[n+2-i, inputs.nMachines+2-j],
+                        q[n+3-i, inputs.nMachines+1-j],
+                    ) + inputs.times[solution.jobs[n+2-i], inputs.nMachines+1-j]
             end
-            f[i, j] = max(f[i-1, j], e[i, j-1]) + inputs.times[kJob, i]
+            f[i, j] = max(f[i, j-1], e[i-1, j]) + inputs.times[kJob, j]
         end
     end
+
     # Find position of minimum makespan
-    Mi = maximum(f.data + q.data, dims=2)[1:end]
-    index = argmin(Mi[1:min(k, end)])
+    Mi = maximum(f.data + q.data, dims = 2)
+    index = argmin(Mi[1:k])
+
     # Insert job in the sequence and update makespan
     insert!(solution.jobs, index, kJob)
     solution.makespan = Mi[index]
@@ -41,8 +48,8 @@ end
 
 function PFSP_Heuristic(inputs, jobIndices)
     solution = Solution()
-    push!(solution.jobs, jobIndices[1])
-    for i = 2:length(jobIndices)
+    solution.jobs = [jobIndices[1]]
+    for i = 2:lastindex(jobIndices)
         insertJobIntoSequence(solution, inputs, i, jobIndices[i])
     end
     return solution
@@ -60,8 +67,9 @@ function createBiasedJobsSequence(jobs, rng)
 end
 
 function PFSP_Multistart(inputs, rng)
-    totalTimes = sum(inputs.times, dims=2)
-    sortedJobIndices = sortperm(vec(totalTimes), rev=true)
+    totalTimes = sum(inputs.times, dims = 2)
+    sortedJobIndices = reverse(sortperm(vec(totalTimes), alg = MergeSort))
+
     nehSolution = PFSP_Heuristic(inputs, sortedJobIndices)
     if BENCHMARK_NEH
         return nehSolution
@@ -101,8 +109,10 @@ function perturbation(baseSolution, inputs, rng)
     solution = Solution()
     solution.jobs = copy(baseSolution.jobs)
     solution.makespan = baseSolution.makespan
+
     # Select two random jobs from the sequence
     aIndex, bIndex = rand(rng, 1:length(solution.jobs), 2)
+
     # Swap the jobs at the two random positions
     solution.jobs[aIndex], solution.jobs[bIndex] =
         solution.jobs[bIndex], solution.jobs[aIndex]
@@ -112,6 +122,7 @@ function perturbation(baseSolution, inputs, rng)
     # Insert the left-most swapped job where the makespan is minimized
     aJob = splice!(solution.jobs, aIndex)
     insertJobIntoSequence(solution, inputs, aIndex, aJob)
+
     # Insert the right-most swapped job where the makespan is minimized
     bJob = splice!(solution.jobs, bIndex)
     insertJobIntoSequence(solution, inputs, bIndex, bJob)
@@ -120,18 +131,25 @@ end
 
 function detExecution(inputs, test, rng)
     # Create a base solution using a randomized NEH approach
+    startTime = time()
     baseSolution = PFSP_Multistart(inputs, rng)
+    baseSolution.time = time() - startTime
+    solution_data =
+        [(time = baseSolution.time, makespan = baseSolution.makespan)]
     if BENCHMARK_NEH
-        return baseSolution
+        return baseSolution, []
     end
     baseSolution = localSearch(baseSolution, inputs, rng)
     bestSolution = baseSolution
-    println("Multistart LS makespan: $(bestSolution.makespan)")
+    bestSolution.time = time() - startTime
+    push!(
+        solution_data,
+        (time = bestSolution.time, makespan = bestSolution.makespan),
+    )
 
     # Start the iterated local search process
     credit = 0
     elapsedTime = 0
-    startTime = time()
     maxTime = inputs.nJobs * inputs.nMachines * t
     while elapsedTime < maxTime
         # Perturb the base solution to find a new solution
@@ -145,6 +163,13 @@ function detExecution(inputs, test, rng)
             if solution.makespan < bestSolution.makespan
                 bestSolution = solution
                 bestSolution.time = time() - startTime
+                push!(
+                    solution_data,
+                    (
+                        time = bestSolution.time,
+                        makespan = bestSolution.makespan,
+                    ),
+                )
             end
         elseif 0 < delta <= credit
             credit = 0
@@ -153,20 +178,12 @@ function detExecution(inputs, test, rng)
         # Update the elapsed time before evaluating the stopping criterion
         elapsedTime = time() - startTime
     end
-    return bestSolution
-end
-
-function printSolution(solution, print_solution=false)
-    if print_solution
-        println("Jobs: " * join([string(job) for job in solution.jobs], ", "))
-    end
-    println("Makespan: $(round(solution.makespan, digits=2))")
-    println("Time: $(round(solution.time, digits=2))")
+    return bestSolution, solution_data
 end
 
 function benchmark_execution(inputs, test, rng)
     elapsed_times = Float64[]
-    for _ in 1:BENCHMARK_RUNS
+    for _ = 1:BENCHMARK_RUNS
         start_time = time()
         solution = detExecution(inputs, test, rng)
         end_time = time()
@@ -175,12 +192,13 @@ function benchmark_execution(inputs, test, rng)
     return elapsed_times
 end
 
-function write_to_csv(tests_dir, execution_times_dict)
-    dict_keys = collect(keys(execution_times_dict))
-    dict_values = collect(values(execution_times_dict))
-    csv_data = DataFrame(dict_values, Symbol.(dict_keys))
-    data_dir = joinpath(tests_dir, "$(basename(PROGRAM_FILE)).csv")
-    CSV.write(data_dir, csv_data)
+function write_to_csv(tests_dir, filename, instance_name, best_solutions)
+    best_solutions_dir = joinpath(tests_dir, filename)
+    open(best_solutions_dir, "a") do io
+        for (t, m) in best_solutions
+            println(io, "$instance_name,$t,$m")
+        end
+    end
 end
 
 function main()
@@ -195,16 +213,19 @@ function main()
     # Read tests from the file
     tests_dir = joinpath(base_dir, "tests")
     tests = readTests(joinpath(tests_dir, "test2run.txt"))
-    execution_times_dict = Dict()
+
+    # Create or overwrite the file with the header
+    best_solutions_filename = "julia_base_solutions.csv"
+    best_solutions_dir = joinpath(tests_dir, best_solutions_filename)
+    open(best_solutions_dir, "w") do io
+        println(io, "Instance,Time,Makespan")
+    end
 
     for test in tests
         # Read inputs for the test inputs
         inputs_dir = joinpath(base_dir, "inputs")
         inputs = readInputs(inputs_dir, test.instanceName)
         rng = MersenneTwister(test.seed)
-
-        println("Julia Base: OBD $(inputs.name)")
-        solution = Solution()
 
         if BENCHMARK_NEH
             # Benchmark NEH execution
@@ -215,12 +236,15 @@ function main()
             append!(execution_times_dict[test.instanceName], elapsed_times)
         else
             # Compute the best deterministic solution
-            solution = detExecution(inputs, test, rng)
-            printSolution(solution)
+            _, best_solutions_data = detExecution(inputs, test, rng)
+            write_to_csv(
+                tests_dir,
+                best_solutions_filename,
+                test.instanceName,
+                best_solutions_data,
+            )
         end
     end
-    write_to_csv(tests_dir, execution_times_dict)
 end
 
 main()
-

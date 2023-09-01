@@ -214,22 +214,28 @@ function test_PFSP_Multistart()
     @testset "PFSP_Multistart" begin
         seed = 1234
         rng = MersenneTwister(seed)
-        nehSolution =
-            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
+        nehSolution = PFSP_Heuristic(
+            inputs,
+            reverse(sortperm(vec(sum(inputs.times, dims = 2)))),
+        )
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
 
         seed = 5678
         rng = MersenneTwister(seed)
-        nehSolution =
-            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
+        nehSolution = PFSP_Heuristic(
+            inputs,
+            reverse(sortperm(vec(sum(inputs.times, dims = 2)))),
+        )
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
 
         seed = 9012
         rng = MersenneTwister(seed)
-        nehSolution =
-            PFSP_Heuristic(inputs, reverse(sortperm(vec(sum(inputs.times, dims = 2)))))
+        nehSolution = PFSP_Heuristic(
+            inputs,
+            reverse(sortperm(vec(sum(inputs.times, dims = 2)))),
+        )
         multistartSolution = PFSP_Multistart(inputs, test_data, rng)
         @test multistartSolution.makespan <= nehSolution.makespan
     end

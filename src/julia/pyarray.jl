@@ -17,7 +17,11 @@ function Base.getindex(A::PythonLikeArray{T,N}, I::Vararg{Int,N}) where {T,N}
     return getindex(A.data, corrected_indices...)
 end
 
-function Base.setindex!(A::PythonLikeArray{T,N}, v, I::Vararg{Int,N}) where {T,N}
+function Base.setindex!(
+    A::PythonLikeArray{T,N},
+    v,
+    I::Vararg{Int,N},
+) where {T,N}
     corrected_indices = ntuple(i -> _handle_negative_index(I[i], size(A, i)), N)
     return setindex!(A.data, v, corrected_indices...)
 end
